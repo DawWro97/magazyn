@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from ttkthemes import ThemedTk
 from tkinter import messagebox, filedialog
+from tkinter import Toplevel
 import hashlib
 import datetime
 import mysql.connector
@@ -11,12 +12,11 @@ import mysql.connector
 ###################################### Wyświetlanie ekranów #####################################################
 
 
-# Ekran administratora
-def wyswietl_ekran_logowania():
-    # Funkcja do utworzenia skrótu hasła
-    def utworz_skrot_hasla(haslo):
-        skrot = hashlib.sha256(haslo.encode()).hexdigest()
-        return skrot
+def show_login_screen():
+
+    def hash_password(haslo):
+        hash = hashlib.sha256(haslo.encode()).hexdigest()
+        return hash
 
     logged_in_user = ""
     user_id = ""
@@ -29,10 +29,9 @@ def wyswietl_ekran_logowania():
         global user_id
         user_id = id
 
-    # Funkcja do sprawdzania danych logowania
-    def sprawdz_logowanie():
+    def check_login():
         email = email_entry.get()
-        haslo = haslo_entry.get()
+        password = password_entry.get()
 
         conn = mysql.connector.connect(
             host="db4free.net",
@@ -42,74 +41,66 @@ def wyswietl_ekran_logowania():
         )
         cursor = conn.cursor()
 
-        # Wykonaj zapytanie SQL, aby pobrać użytkownika o określonym adresie e-mail
         cursor.execute('SELECT * FROM uzytkownicy WHERE email=%s', (email,))
 
-        # Pobierz jednego użytkownika (jeśli istnieje)
-        uzytkownik = cursor.fetchone()
+        user = cursor.fetchone()
 
-        if uzytkownik:
-            haslo_w_bazie = uzytkownik[5]
-            haslo_skrot = utworz_skrot_hasla(haslo)
-            if haslo_w_bazie == haslo_skrot:
-                imie = uzytkownik[1]
-                nazwisko = uzytkownik[2]
-                rola = uzytkownik[3]
-                u_id = uzytkownik[6]
+        if user:
+            password_in_datebase = user[5]
+            hash = hash_password(password)
+            if password_in_datebase == hash:
+                name = user[1]
+                lastname = user[2]
+                level = user[3]
+                u_id = user[6]
 
-                # Połącz imię i nazwisko w jedną zmienną
-                full_name = f"{imie} {nazwisko}"
+                full_name = f"{name} {lastname}"
 
-                # Ustaw nazwę zalogowanego użytkownika
                 set_logged_in_user(full_name)
                 set_user_id(u_id)
 
-                if rola == "admin":
+                if level == "admin":
                     root.destroy()
-                    wyswietl_ekran_admina()
-                elif rola == "pracownik":
+                    show_admin_screen()
+                elif level == "pracownik":
                     root.destroy()
-                    wyswietl_ekran_pracownika()
-                elif rola == "magazyn":
+                    show_user_screen()
+                elif level == "magazyn":
                     root.destroy()
-                    wyswietl_ekran_magazynu()
+                    show_storage_screen()
             else:
-                wynik_label.config(text="Błąd logowania")
+                result_label.config(text="Błąd logowania")
         else:
-            wynik_label.config(text="Błąd logowania")
+            result_label.config(text="Błąd logowania")
 
-    # Inicjalizacja okna
     root = ThemedTk(theme="arc")
     root.title("Logowanie")
 
-    # Dodanie ramki dla estetyki
     frame = ttk.Frame(root, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
-    # Etykiety i pola tekstowe dla emaila i hasła
     email_label = ttk.Label(frame, text="Email:")
     email_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
     email_entry = ttk.Entry(frame, width=50, font=('Arial', 12), justify='left')
     email_entry.grid(row=0, column=1, padx=5, pady=(20, 5), ipady=10)
 
-    haslo_label = ttk.Label(frame, text="Hasło:")
-    haslo_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
-    haslo_entry = ttk.Entry(frame, show="*", width=50, font=('Arial', 12), justify='left')
-    haslo_entry.grid(row=1, column=1, padx=5, pady=(5, 10), ipady=10)
+    password_label = ttk.Label(frame, text="Hasło:")
+    password_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
+    password_entry = ttk.Entry(frame, show="*", width=50, font=('Arial', 12), justify='left')
+    password_entry.grid(row=1, column=1, padx=5, pady=(5, 10), ipady=10)
 
-    # Przycisk do logowania
-    login_button = ttk.Button(frame, text="Zaloguj", command=sprawdz_logowanie)
+    login_button = ttk.Button(frame, text="Zaloguj", command=check_login)
     login_button.grid(row=2, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
-    # Etykieta do wyświetlania komunikatów o błędach
-    wynik_label = ttk.Label(frame, text="", foreground="red")
-    wynik_label.grid(row=3, column=0, columnspan=2, pady=(15, 20))
+    result_label = ttk.Label(frame, text="", foreground="red")
+    result_label.grid(row=3, column=0, columnspan=2, pady=(15, 20))
 
-    # Uruchomienie pętli głównej
+    root.resizable(width=False, height=False)
+
     root.mainloop()
 
 
-def wyswietl_ekran_admina():
+def show_admin_screen():
     global users_tree
 
     root = ThemedTk(theme="arc")
@@ -119,13 +110,13 @@ def wyswietl_ekran_admina():
     main_frame.grid(row=0, column=20, sticky="nsew")
     logged_in_label = ttk.Label(main_frame, text=f"Jesteś zalogowany jako: {logged_in_user}")
     logged_in_label.grid(row=1, column=0, pady=(0, 10), padx=(20, 0), sticky="ew")
-    # Dodaj przycisk "Wyloguj"
+
     logout_button = ttk.Button(main_frame, text="Wyloguj", command=lambda: on_close(root), width=15)
     logout_button.grid(row=1, column=19, pady=(0, 10), padx=(0, 20), sticky="e", ipadx=10, ipady=5)
-    # Dodaj przycisk "Zmień hasło"
-    change_password_button = ttk.Button(main_frame, text="Zmień hasło", command=zmien_haslo, width=15)
+
+    change_password_button = ttk.Button(main_frame, text="Zmień hasło", command=change_password, width=15)
     change_password_button.grid(row=1, column=18, pady=(0, 10), sticky="e", ipadx=10, ipady=5)
-    # Frame dla widoku użytkowników
+
     users_frame = ttk.Frame(main_frame, padding=10)
     users_frame.grid(row=0, column=0, columnspan=20, padx=10, pady=10, sticky="nsew")
 
@@ -152,18 +143,20 @@ def wyswietl_ekran_admina():
     users_tree.column("Identyfikator", width=150)
     users_tree.grid(row=2, column=0, pady=(0, 10), sticky="nsew")
 
-    create_button = ttk.Button(users_frame, text="Utwórz użytkownika", command=utworz)
+    create_button = ttk.Button(users_frame, text="Utwórz użytkownika", command=create)
     create_button.grid(row=3, column=0, pady=(0, 10), sticky="ew")
 
-    create_button = ttk.Button(users_frame, text="Edytuj użytkownika", command=edytuj)
+    create_button = ttk.Button(users_frame, text="Edytuj użytkownika", command=edit)
     create_button.grid(row=4, column=0, pady=(0, 10), sticky="ew")
+
+    root.resizable(width=False, height=False)
 
     root.mainloop()
 
 
 # Ekran pracownika
 
-def wyswietl_ekran_pracownika():
+def show_user_screen():
     global tree
     global order_tree
     global order__tree
@@ -176,14 +169,13 @@ def wyswietl_ekran_pracownika():
     main_frame.grid(row=0, column=20, sticky="nsew")
     logged_in_label = ttk.Label(main_frame, text=f"Jesteś zalogowany jako: {logged_in_user}")
     logged_in_label.grid(row=1, column=0, pady=(0, 10), padx=(20, 0), sticky="ew")
-    # Dodaj przycisk "Wyloguj"
+
     logout_button = ttk.Button(main_frame, text="Wyloguj", command=lambda: on_close(root), width=15)
     logout_button.grid(row=1, column=19, pady=(0, 10), padx=(0, 20), sticky="e", ipadx=10, ipady=5)
-    # Dodaj przycisk "Zmień hasło"
-    change_password_button = ttk.Button(main_frame, text="Zmień hasło", command=zmien_haslo, width=15)
+
+    change_password_button = ttk.Button(main_frame, text="Zmień hasło", command=change_password, width=15)
     change_password_button.grid(row=1, column=18, pady=(0, 10), sticky="e", ipadx=10, ipady=5)
 
-    # Frame dla widoku magazynu
     inventory_frame = ttk.Frame(main_frame, padding=10)
     inventory_frame.grid(row=0, column=0, columnspan=10, padx=10, pady=10, sticky="nsew")
 
@@ -204,11 +196,10 @@ def wyswietl_ekran_pracownika():
     add_to_order_button = ttk.Button(inventory_frame, text="Dodaj do zlecenia", command=add_to_order)
     add_to_order_button.grid(row=3, column=0, pady=(0, 10), sticky="ew", ipadx=20, ipady=10)
 
-    # Frame dla zleceń
     order_frame = ttk.Frame(main_frame, padding=10)
     order_frame.grid(row=0, column=10, columnspan=10, padx=10, pady=10, sticky="nsew")
 
-    button = ttk.Button(inventory_frame, text="Wyszukaj", command=wyszukaj)
+    button = ttk.Button(inventory_frame, text="Wyszukaj", command=search)
     button.grid(row=1, column=0, pady=(0, 10), sticky="ew")
 
     order_tree = ttk.Treeview(order_frame)
@@ -227,18 +218,20 @@ def wyswietl_ekran_pracownika():
     remove_from_order_button = ttk.Button(order_frame, text="Usuń zaznaczony", command=remove_from_order)
     remove_from_order_button.grid(row=2, column=0, pady=(0, 10), sticky="ew", columnspan=2)
 
-    clear_order_button = ttk.Button(order_frame, text="Wyczyść listę", command=czyszczenie_okna_bez_wyslania)
+    clear_order_button = ttk.Button(order_frame, text="Wyczyść listę", command=clear_window_without_send)
     clear_order_button.grid(row=3, column=0, pady=(0, 10), columnspan=2, sticky="ew")
 
     save_to_db_button = ttk.Button(order_frame, text="Wyślij zlecenie", command=save_to_database)
     save_to_db_button.grid(row=4, column=0, pady=(0, 10), columnspan=2, sticky="ew", ipadx=20, ipady=10)
+
+    root.resizable(width=False, height=False)
 
     root.mainloop()
 
 
 # Ekran magazyniera
 
-def wyswietl_ekran_magazynu():
+def show_storage_screen():
     global tree
     global order_tree
     global order__tree
@@ -251,45 +244,44 @@ def wyswietl_ekran_magazynu():
     main_frame.grid(row=0, column=20, sticky="nsew")
     logged_in_label = ttk.Label(main_frame, text=f"Jesteś zalogowany jako: {logged_in_user}")
     logged_in_label.grid(row=1, column=0, pady=(0, 10), padx=(20, 0), sticky="ew")
-    # Dodaj przycisk "Wyloguj"
+
     logout_button = ttk.Button(main_frame, text="Wyloguj", command=lambda: on_close(root), width=15)
     logout_button.grid(row=1, column=19, pady=(0, 10), padx=(0, 20), sticky="e", ipadx=10, ipady=5)
-    # Dodaj przycisk "Zmień hasło"
-    change_password_button = ttk.Button(main_frame, text="Zmień hasło", command=zmien_haslo, width=15)
+
+    change_password_button = ttk.Button(main_frame, text="Zmień hasło", command=change_password, width=15)
     change_password_button.grid(row=1, column=18, pady=(0, 10), sticky="e", ipadx=10, ipady=5)
 
-    # Frame dla zleceń
     order_frame = ttk.Frame(main_frame, padding=10)
     order_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 
     empty_row = ttk.Label(order_frame, text="")
     empty_row.grid(row=0, column=0, pady=(0, 40))
 
-    data_add_button = ttk.Button(order_frame, text="Dodaj produkt", command=dodaj_do_bazy)
+    data_add_button = ttk.Button(order_frame, text="Dodaj produkt", command=add_to_datebase)
     data_add_button.grid(row=1, column=0, pady=(0, 10), sticky="ew")
 
-    button = ttk.Button(order_frame, text="Usuń zaznaczony", command=usun_zaznaczony_element)
+    button = ttk.Button(order_frame, text="Usuń zaznaczony", command=remove_select_item)
     button.grid(row=2, column=0, pady=(0, 10), sticky="ew")
 
-    button = ttk.Button(order_frame, text="Zwiększ ilość", command=zwieksz_ilosc)
+    button = ttk.Button(order_frame, text="Zwiększ ilość", command=increase_quantity)
     button.grid(row=3, column=0, pady=(0, 10), sticky="ew")
 
-    button = ttk.Button(order_frame, text="Zmniejsz ilość", command=zmniejsz_ilosc)
+    button = ttk.Button(order_frame, text="Zmniejsz ilość", command=reduce_quantity)
     button.grid(row=4, column=0, pady=(0, 10), sticky="ew")
 
-    button = ttk.Button(order_frame, text="Wyszukaj", command=wyszukaj)
+    button = ttk.Button(order_frame, text="Wyszukaj", command=search)
     button.grid(row=5, column=0, pady=(0, 10), sticky="ew")
 
-    button = ttk.Button(order_frame, text="Wygeneruj excel", command=wygeneruj_excel)
+    button = ttk.Button(order_frame, text="Wygeneruj excel", command=generate_excel)
     button.grid(row=6, column=0, pady=(0, 10), sticky="ew")
 
-    button = ttk.Button(order_frame, text="Przyjęcie produktów", command=przyjmij)
+    button = ttk.Button(order_frame, text="Przyjęcie produktów", command=admission)
     button.grid(row=7, column=0, pady=(0, 10), sticky="ew")
 
-    button = ttk.Button(order_frame, text="Historia przyjęć", command=wyswietl_historie)
+    button = ttk.Button(order_frame, text="Historia przyjęć", command=show_history)
     button.grid(row=8, column=0, pady=(0, 10), sticky="ew")
 
-    # Frame dla widoku magazynu
+
     inventory_frame = ttk.Frame(main_frame, padding=10)
     inventory_frame.grid(row=0, column=2, columnspan=8, padx=10, pady=10, sticky="nsew")
 
@@ -326,13 +318,13 @@ def wyswietl_ekran_magazynu():
     remove_from_order_button = ttk.Button(inventory_frame, text="Usuń zaznaczony", command=remove_from_order)
     remove_from_order_button.grid(row=4, column=1, pady=(0, 10), sticky="ew")
 
-    clear_order_button = ttk.Button(inventory_frame, text="Wyczyść listę", command=czyszczenie_okna_bez_wyslania)
+    clear_order_button = ttk.Button(inventory_frame, text="Wyczyść listę", command=clear_window_without_send)
     clear_order_button.grid(row=5, column=1, pady=(0, 10), sticky="ew")
 
     save_to_db_button = ttk.Button(inventory_frame, text="Wyślij zlecenie", command=save_to_database)
     save_to_db_button.grid(row=6, column=1, pady=(0, 10), columnspan=2, sticky="ew", ipadx=20, ipady=10)
 
-    # Frame dla zleceń
+
     order__frame = ttk.Frame(main_frame, padding=10)
     order__frame.grid(row=0, column=12, columnspan=8, padx=10, pady=10, sticky="nsew")
 
@@ -342,44 +334,45 @@ def wyswietl_ekran_magazynu():
     done_order_button = ttk.Button(order__frame, text="Zakończ zamówienie", command=remove_order_by_number)
     done_order_button.grid(row=2, column=0, pady=(0, 10), columnspan=2, sticky="ew", ipadx=20, ipady=10)
 
-    done_order_button = ttk.Button(order__frame, text="Historia zamówień", command=historia)
+    done_order_button = ttk.Button(order__frame, text="Historia zamówień", command=history)
     done_order_button.grid(row=3, column=0, pady=(0, 10), columnspan=2, sticky="ew")
 
     order__tree = ttk.Treeview(order__frame)
     order__tree["columns"] = (
-    "ID", "Nazwa", "Ilosc", "Numer", "DataDodania", "Zamawiajacy")  # Dodaj kolumnę "DataDodania"
+    "ID", "Nazwa", "Ilosc", "Numer", "DataDodania", "Zamawiajacy")
     order__tree.heading("ID", text="ID", anchor='center')
     order__tree.heading("Nazwa", text="Nazwa", anchor='center')
     order__tree.heading("Ilosc", text="Ilość", anchor='center')
     order__tree.heading("Numer", text="Numer", anchor='center')
-    order__tree.heading("DataDodania", text="Data Dodania", anchor='center')  # Dodaj nagłówek dla kolumny daty
-    order__tree.heading("Zamawiajacy", text="Zamawiajacy", anchor='center')  # Dodaj nagłówek dla kolumny daty
+    order__tree.heading("DataDodania", text="Data Dodania", anchor='center')
+    order__tree.heading("Zamawiajacy", text="Zamawiajacy", anchor='center')
 
     order__tree.column("#0", width=0, minwidth=0, stretch=tk.NO)
     order__tree.column("ID", width=150, stretch=False)
     order__tree.column("Nazwa", width=150)
     order__tree.column("Ilosc", width=150)
     order__tree.column("Numer", width=150)
-    order__tree.column("DataDodania", width=200)  # Dostosuj szerokość kolumny daty
-    order__tree.column("Zamawiajacy", width=100)  # Dostosuj szerokość kolumny daty
+    order__tree.column("DataDodania", width=200)
+    order__tree.column("Zamawiajacy", width=100)
     order__tree.grid(row=1, column=0, pady=(0, 10), columnspan=2, sticky="nsew")
 
     order__tree.heading("Numer", text="Numer", anchor='center',
                         command=lambda: sort_treeview(order__tree, "Numer", False))
+
+    root.resizable(width=False, height=False)
 
     root.mainloop()
 
 
 ###################################### Pobieranie danych z bazy #####################################################
 
-# Pobieranie zleceń z bazy danych i wyświetlanie
 
 def data_entry2():
-    def wyczysc_treeview2():
+    def clear_treeview2():
         for item in order__tree.get_children():
             order__tree.delete(item)
 
-    wyczysc_treeview2()
+    clear_treeview2()
 
 
 def populate_order_tree():
@@ -398,14 +391,12 @@ def populate_order_tree():
     conn.close()
 
 
-# Pobieranie danych magazynowych z bazy danych i wyświetlanie
-
 def data_entry():
-    def wyczysc_treeview():
+    def clear_treeview():
         for item in tree.get_children():
             tree.delete(item)
 
-    wyczysc_treeview()
+    clear_treeview()
 
 
 def populate_tree():
@@ -424,15 +415,12 @@ def populate_tree():
     conn.close()
 
 
-# Pobieranie użytkowników z bazy danych i wyświetlanie
-
 def data_entry3():
-    def wyczysc_treeview3():
+    def clear_treeview3():
         for item in users_tree.get_children():
             users_tree.delete(item)
 
-    wyczysc_treeview3()
-
+    clear_treeview3()
 
 def populate_tree3():
     data_entry3()
@@ -450,14 +438,12 @@ def populate_tree3():
     conn.close()
 
 
-# Pobieranie historii z bazy danych i wyświetlanie
-
 def data_entry4():
-    def wyczysc_treeview4():
+    def clear_treeview4():
         for item in history_tree.get_children():
             history_tree.delete(item)
 
-    wyczysc_treeview4()
+    clear_treeview4()
 
 
 def populate_tree4():
@@ -477,11 +463,11 @@ def populate_tree4():
 
 
 def data_entry5():
-    def wyczysc_treeview5():
+    def clear_treeview5():
         for item in history_receipt_tree.get_children():
             history_receipt_tree.delete(item)
 
-    wyczysc_treeview5()
+    clear_treeview5()
 
 
 def populate_tree5():
@@ -502,35 +488,27 @@ def populate_tree5():
 
 ###################################### Podstawowe funkcjonalności magazynu #####################################################
 
-# Usuwanie elementu ze stanu magazynowego
 
-def usun_zaznaczony_element():
-    # Pobierz zaznaczony element z widoku drzewa
-    zaznaczone_elementy = tree.selection()
-    if len(zaznaczone_elementy) == 0:
-        # Jeśli nic nie jest zaznaczone, nie rób nic
+def remove_select_item():
+
+    select_item = tree.selection()
+    if len(select_item) == 0:
         return
 
-    # Pobierz identyfikator zaznaczonego elementu
-    zaznaczony_element = zaznaczone_elementy[0]
+    select_itemm = select_item[0]
 
-    # Pobierz dane zaznaczonego elementu
-    dane_zaznaczonego_elementu = tree.item(zaznaczony_element, 'values')
+    date_select_item = tree.item(select_itemm, 'values')
 
-    # Pobierz identyfikator zaznaczonego elementu (na przykład w pierwszej kolumnie)
-    id_elementu = dane_zaznaczonego_elementu[0]
+    id_elementu = date_select_item[0]
 
-    # Wyświetl pytanie o potwierdzenie przed usunięciem
-    potwierdzenie = messagebox.askyesno("Potwierdzenie", "Czy na pewno chcesz usunąć ten element?")
-    if potwierdzenie:
-        # Usuń zaznaczony element z bazy danych
-        usun_rekord(id_elementu)
+    confirm = messagebox.askyesno("Potwierdzenie", "Czy na pewno chcesz usunąć ten element?")
+    if confirm:
+        remove(id_elementu)
 
-        # Usuń zaznaczony element z widoku drzewa
-        tree.delete(zaznaczony_element)
+        tree.delete(select_itemm)
 
 
-def usun_rekord(id):
+def remove(id):
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -539,31 +517,37 @@ def usun_rekord(id):
     )
     cursor = conn.cursor()
 
-    # Wykonaj zapytanie SQL, aby usunąć rekord o określonym identyfikatorze
     cursor.execute("DELETE FROM Magazyn WHERE id=%s", (id,))
 
     conn.commit()
     conn.close()
 
 
-# Wyszukiwanie elementu po ID
 
-def wyszukaj():
-    root = ThemedTk(theme="arc")
+def search():
+    root = Toplevel()
     root.title("Wyszukiwanie po ID")
 
-    # Dodanie ramki dla estetyki
+    root.grab_set()
+
     frame = ttk.Frame(root, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
-    # Etykieta i pole tekstowe do wprowadzania ID
     label5 = ttk.Label(frame, text="Wyszukaj po ID:")
     label5.grid(row=0, column=0, sticky="w", pady=(20, 5))
 
     entry5 = ttk.Entry(frame, width=50, font=('Arial', 12), justify='left')
-    entry5.grid(row=0, column=1, padx=5, pady=(20, 5), ipady=10)  # Ustawienie ipady dla zwiększenia wysokości
+    entry5.grid(row=0, column=1, padx=5, pady=(20, 5), ipady=10)
 
-    def wyszukaj_po_id():
+    def on_close():
+        root.grab_release()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.resizable(width=False, height=False)
+
+    def search_id():
         id_to_search = entry5.get()
         conn = mysql.connector.connect(
             host="db4free.net",
@@ -573,34 +557,31 @@ def wyszukaj():
         )
         cursor = conn.cursor()
 
-        # Wykonaj zapytanie SQL, aby znaleźć rekord na podstawie ID
         cursor.execute("SELECT * FROM Magazyn WHERE id=%s", (id_to_search,))
         result = cursor.fetchone()
 
         conn.close()
 
         if result is not None:
-            # Wyczyść wcześniejsze wyniki w Treeview
             for item in tree.get_children():
                 tree.delete(item)
-            # Dodaj wynik do Treeview
             tree.insert("", "end", values=result)
         else:
             tk.messagebox.showinfo("Wynik wyszukiwania", "Brak rekordu o podanym ID.")
 
-    # Przyciski dodane w nowym fragmencie kodu
-    button2 = ttk.Button(frame, text="Wyszukaj po ID", command=wyszukaj_po_id)
+    button2 = ttk.Button(frame, text="Wyszukaj po ID", command=search_id)
     button2.grid(row=2, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
     data_entry_button = ttk.Button(frame, text="Pokaż wszystkie", command=populate_tree)
     data_entry_button.grid(row=3, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
 
-# Dodawanie produktu do stanu magazynowego
 
-def dodaj_do_bazy():
-    root = ThemedTk(theme="arc")
+def add_to_datebase():
+    root = Toplevel()
     root.title("Dodawanie danych do bazy")
+
+    root.grab_set()
 
     frame = ttk.Frame(root, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
@@ -620,8 +601,16 @@ def dodaj_do_bazy():
     entry3 = ttk.Entry(frame, width=50, font=('Arial', 12), justify='left')
     entry3.grid(row=2, column=1, padx=5, pady=(5, 10), ipady=10)
 
-    wynik_label = ttk.Label(frame, text="", foreground="red")
-    wynik_label.grid(row=4, column=0, columnspan=2, pady=(15, 20))
+    result_label = ttk.Label(frame, text="", foreground="red")
+    result_label.grid(row=4, column=0, columnspan=2, pady=(15, 20))
+
+    def on_close():
+        root.grab_release()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.resizable(width=False, height=False)
 
     def is_numeric(value):
         try:
@@ -630,7 +619,7 @@ def dodaj_do_bazy():
         except ValueError:
             return False
 
-    def sprawdz_i_dodaj():
+    def check_and_add():
         id_value = entry1.get()
         nazwa_value = entry2.get()
         ilosc_value = entry3.get()
@@ -643,17 +632,15 @@ def dodaj_do_bazy():
             tk.messagebox.showerror("Błąd", "Pole 'Ilość' musi zawierać wartość numeryczną.")
             return
 
-        dane = (id_value, nazwa_value, ilosc_value)
+        date = (id_value, nazwa_value, ilosc_value)
 
-        # Sprawdź, czy wartość w pierwszej kolumnie już istnieje
-        if czy_wartosc_istnieje(id_value):
+        if exists(id_value):
             tk.messagebox.showerror("Błąd", "Towar o podanym numerze magazynowym już istnieje.")
         else:
-            # Wartość jest unikalna, dodaj do bazy danych
-            dodaj_do_bazy2(dane)
+            add_to_datebase2(date)
             tk.messagebox.showinfo("Sukces", "Produkt został dodany.")
 
-    def czy_wartosc_istnieje(wartosc):
+    def exists(value):
         conn = mysql.connector.connect(
             host="db4free.net",
             user="magazyn",
@@ -661,15 +648,14 @@ def dodaj_do_bazy():
             database="magazyn_pd"
         )
         cursor = conn.cursor()
-        # Wykonaj zapytanie SQL, aby sprawdzić, czy wartość już istnieje w pierwszej kolumnie
-        cursor.execute("SELECT * FROM Magazyn WHERE id=%s", (wartosc,))
+        cursor.execute("SELECT * FROM Magazyn WHERE id=%s", (value,))
         result = cursor.fetchone()
 
         conn.close()
 
         return result is not None
 
-    def dodaj_do_bazy2(dane):
+    def add_to_datebase2(date):
         conn = mysql.connector.connect(
             host="db4free.net",
             user="magazyn",
@@ -678,17 +664,18 @@ def dodaj_do_bazy():
         )
         cursor = conn.cursor()
 
-        cursor.execute("INSERT INTO Magazyn VALUES (%s, %s, %s)", dane)
+        cursor.execute("INSERT INTO Magazyn VALUES (%s, %s, %s)", date)
 
         conn.commit()
         conn.close()
         populate_tree()
 
-    button = ttk.Button(frame, text="Dodaj do bazy", command=sprawdz_i_dodaj)
+    button = ttk.Button(frame, text="Dodaj do bazy", command=check_and_add)
     button.grid(row=3, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
 
-def przyjmij():
+def admission():
+
     def is_numeric(value):
         try:
             float(value)
@@ -704,22 +691,22 @@ def przyjmij():
 
     def add_to_temp_data():
         id_value = entry1.get()
-        nazwa_value = entry2.get()
-        ilosc_value = entry3.get()
+        name_value = entry2.get()
+        quantity_value = entry3.get()
 
-        if not is_numeric(id_value) or not is_numeric(ilosc_value):
+        if not is_numeric(id_value) or not is_numeric(quantity_value):
             messagebox.showerror("Błąd", "ID i Ilość muszą być wartościami numerycznymi.")
             return
 
-        temp_data.append((id_value, nazwa_value, ilosc_value))
+        temp_data.append((id_value, name_value, quantity_value))
         populate_receipt_tree()
         entry1.delete(0, tk.END)
         entry2.delete(0, tk.END)
         entry3.delete(0, tk.END)
 
-    def przyjmij():
+    def admission():
         for item in temp_data:
-            id_value, nazwa_value, ilosc_value = item
+            id_value, name_value, quantity_value = item
 
             conn = mysql.connector.connect(
                 host="db4free.net",
@@ -729,20 +716,18 @@ def przyjmij():
             )
             cursor = conn.cursor()
 
-            # Aktualizuj ilość w tabeli Magazyn
             cursor.execute("SELECT * FROM Magazyn WHERE id=%s", (id_value,))
             existing_row = cursor.fetchone()
             if existing_row:
-                nowa_ilosc = int(existing_row[2]) + int(ilosc_value)
-                cursor.execute("UPDATE Magazyn SET ilosc=%s WHERE id=%s", (nowa_ilosc, id_value))
+                new_quantity = int(existing_row[2]) + int(quantity_value)
+                cursor.execute("UPDATE Magazyn SET ilosc=%s WHERE id=%s", (new_quantity, id_value))
             else:
-                dane = (id_value, nazwa_value, ilosc_value)
-                cursor.execute("INSERT INTO Magazyn VALUES (%s, %s, %s)", dane)
+                date = (id_value, name_value, quantity_value)
+                cursor.execute("INSERT INTO Magazyn VALUES (%s, %s, %s)", date)
 
-            # Dodaj do historii przyjęć w tabeli HistoriaPrzyjec
-            current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Uzyskaj bieżącą datę i godzinę
-            historia_dane = (id_value, nazwa_value, ilosc_value, current_datetime, user_id)
-            cursor.execute("INSERT INTO HistoriaPrzyjec VALUES (%s, %s, %s, %s, %s)", historia_dane)
+            current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            history_date = (id_value, name_value, quantity_value, current_datetime, user_id)
+            cursor.execute("INSERT INTO HistoriaPrzyjec VALUES (%s, %s, %s, %s, %s)", history_date)
 
             conn.commit()
             conn.close()
@@ -751,7 +736,7 @@ def przyjmij():
         temp_data.clear()
         populate_receipt_tree()
 
-    def import_z_excel():
+    def import_from_excel():
         file_path = filedialog.askopenfilename(filetypes=[("Pliki Excela", "*.xlsx;*.xls")])
 
         if not file_path:
@@ -762,13 +747,13 @@ def przyjmij():
             sheet = workbook.active
 
             for row in sheet.iter_rows(min_row=2, values_only=True):
-                id_value, nazwa_value, ilosc_value = map(str, row)
+                id_value, name_value, quantity_value = map(str, row)
 
-                if not is_numeric(id_value) or not is_numeric(ilosc_value):
+                if not is_numeric(id_value) or not is_numeric(quantity_value):
                     messagebox.showerror("Błąd", "ID i Ilość muszą być wartościami numerycznymi.")
                     return
 
-                temp_data.append((id_value, nazwa_value, ilosc_value))
+                temp_data.append((id_value, name_value, quantity_value))
             populate_receipt_tree()
         except Exception as e:
             messagebox.showerror("Błąd", f"Wystąpił błąd podczas importu z Excela:\n{str(e)}")
@@ -781,8 +766,10 @@ def przyjmij():
                 temp_data.remove(tuple(values))
                 receipt_tree.delete(item)
 
-    root = ThemedTk(theme="arc")
+    root = Toplevel()
     root.title("Dodawanie danych do bazy")
+
+    root.grab_set()
 
     frame = ttk.Frame(root, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
@@ -802,13 +789,13 @@ def przyjmij():
     entry3 = ttk.Entry(frame, width=50, font=('Arial', 12), justify='left')
     entry3.grid(row=2, column=1, padx=5, pady=(5, 10), ipady=10)
 
-    wynik_label = ttk.Label(frame, text="", foreground="red")
-    wynik_label.grid(row=5, column=0, columnspan=2, pady=(15, 20))
+    result_label = ttk.Label(frame, text="", foreground="red")
+    result_label.grid(row=5, column=0, columnspan=2, pady=(15, 20))
 
     button_add = ttk.Button(frame, text="Dodaj do tymczasowego przyjęcia", command=add_to_temp_data)
     button_add.grid(row=3, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
-    button_import = ttk.Button(frame, text="Import z Excela", command=import_z_excel)
+    button_import = ttk.Button(frame, text="Import z Excela", command=import_from_excel)
     button_import.grid(row=4, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
     button_remove = ttk.Button(frame, text="Usuń zaznaczone", command=remove_selected_item)
@@ -821,19 +808,29 @@ def przyjmij():
     receipt_tree.heading("Ilość", text="Ilość")
     receipt_tree.grid(row=6, column=0, columnspan=2, pady=(20, 15))
 
-    button_accept = ttk.Button(frame, text="Przyjmij", command=przyjmij)
+    button_accept = ttk.Button(frame, text="Przyjmij", command=admission)
     button_accept.grid(row=8, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
     temp_data = []
 
+    def on_close():
+        root.grab_release()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.resizable(width=False, height=False)
+
     root.mainloop()
 
 
-def wyswietl_historie():
+def show_history():
     global history_receipt_tree
 
-    root = ThemedTk(theme="arc")
+    root = Toplevel()
     root.title("Historia Przyjęć")
+
+    root.grab_set()
 
     frame = ttk.Frame(root, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
@@ -847,36 +844,37 @@ def wyswietl_historie():
     history_receipt_tree.heading("Przyjmujący", text="Przyjmujący")
     history_receipt_tree.grid(row=1, column=0, columnspan=2, pady=(20, 15))
 
-    data_entry_button = ttk.Button(frame, text="Pokaż historię", command=populate_tree5)
-    data_entry_button.grid(row=8, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
+    populate_tree5()
+
+    def on_close():
+        root.grab_release()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.resizable(width=False, height=False)
 
     root.mainloop()
 
 
-def zwieksz_ilosc():
-    # Pobierz zaznaczony element z widoku drzewa
-    zaznaczone_elementy = tree.selection()
-    if len(zaznaczone_elementy) == 0:
-        # Jeśli nic nie jest zaznaczone, nie rób nic
+def increase_quantity():
+
+    select_items = tree.selection()
+    if len(select_items) == 0:
+
         return
 
-    # Pobierz identyfikator zaznaczonego elementu
-    zaznaczony_element = zaznaczone_elementy[0]
+    select_item = select_items[0]
 
-    # Pobierz dane zaznaczonego elementu
-    dane_zaznaczonego_elementu = tree.item(zaznaczony_element, 'values')
+    date_select_item = tree.item(select_item, 'values')
 
-    # Pobierz identyfikator zaznaczonego elementu (na przykład w pierwszej kolumnie)
-    id_elementu = dane_zaznaczonego_elementu[0]
+    id_item = date_select_item[0]
 
-    # Zwiększ wartość kolumny "ilość" o 1 w bazie danych
-    zwieksz_ilosc_w_bazie(id_elementu)
+    increase_quantity_in_datebase(id_item)
 
-    # Aktualizuj wartość w widoku drzewa
-    aktualizuj_widok_drzewa(zaznaczony_element)
+    update_tree(select_item)
 
-
-def zwieksz_ilosc_w_bazie(id):
+def increase_quantity_in_datebase(id):
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -885,45 +883,36 @@ def zwieksz_ilosc_w_bazie(id):
     )
     cursor = conn.cursor()
 
-    # Wykonaj zapytanie SQL, które zwiększa wartość kolumny "ilość" o 1
     cursor.execute("UPDATE Magazyn SET Ilosc = Ilosc + 1 WHERE id=%s", (id,))
 
     conn.commit()
     conn.close()
 
+def update_tree(item):
+    current_quantity = int(tree.item(item, 'values')[2])
 
-def aktualizuj_widok_drzewa(element):
-    obecna_ilosc = int(tree.item(element, 'values')[2])
+    new_quantity = current_quantity + 1
 
-    nowa_ilosc = obecna_ilosc + 1
+    tree.item(item, values=(tree.item(item, 'values')[0], tree.item(item, 'values')[1], new_quantity))
 
-    tree.item(element, values=(tree.item(element, 'values')[0], tree.item(element, 'values')[1], nowa_ilosc))
+def reduce_quantity():
 
-
-# Zmiejszanie ilości produktów w stanie magazynowym
-
-def zmniejsz_ilosc():
-    zaznaczone_elementy = tree.selection()
-    if len(zaznaczone_elementy) == 0:
+    select_items = tree.selection()
+    if len(select_items) == 0:
         return
 
-    # Pobierz identyfikator zaznaczonego elementu
-    zaznaczony_element = zaznaczone_elementy[0]
+    select_item = select_items[0]
 
-    # Pobierz dane zaznaczonego elementu
-    dane_zaznaczonego_elementu = tree.item(zaznaczony_element, 'values')
+    date_select_item = tree.item(select_item, 'values')
 
-    # Pobierz identyfikator zaznaczonego elementu (na przykład w pierwszej kolumnie)
-    id_elementu = dane_zaznaczonego_elementu[0]
+    id_item = date_select_item[0]
 
-    # Zwiększ wartość kolumny "ilość" o 1 w bazie danych
-    zmniejsz_ilosc_w_bazie(id_elementu)
+    reduce_quantity_in_datebase(id_item)
 
-    # Aktualizuj wartość w widoku drzewa
-    aktualizuj_widok_drzewa2(zaznaczony_element)
+    update_tree2(select_item)
 
 
-def zmniejsz_ilosc_w_bazie(id):
+def reduce_quantity_in_datebase(id):
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -931,28 +920,21 @@ def zmniejsz_ilosc_w_bazie(id):
         database="magazyn_pd"
     )
     cursor = conn.cursor()
-    # Wykonaj zapytanie SQL, które zwiększa wartość kolumny "ilość" o 1
     cursor.execute("UPDATE Magazyn SET Ilosc = Ilosc - 1 WHERE id=%s", (id,))
 
     conn.commit()
     conn.close()
 
 
-def aktualizuj_widok_drzewa2(element):
-    # Pobierz obecną wartość kolumny "ilość" z widoku drzewa
-    obecna_ilosc = int(tree.item(element, 'values')[2])  # Zakładamy, że "ilość" jest trzecią kolumną (0, 1, 2)
+def update_tree2(element):
+    current_quantity = int(tree.item(element, 'values')[2])
 
-    # Zwiększ wartość o 1
-    nowa_ilosc = obecna_ilosc - 1
+    new_quantity = current_quantity - 1
 
-    # Zaktualizuj widok drzewa z nową wartością "ilość"
-    tree.item(element, values=(tree.item(element, 'values')[0], tree.item(element, 'values')[1], nowa_ilosc))
+    tree.item(element, values=(tree.item(element, 'values')[0], tree.item(element, 'values')[1], new_quantity))
 
 
-# Wygenerowanie excela ze stanem magazynowym
-
-def wygeneruj_excel():
-    # Połączenie z bazą danych SQLite
+def generate_excel():
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -961,40 +943,30 @@ def wygeneruj_excel():
     )
     cursor = conn.cursor()
 
-    # Pobranie danych z bazy danych
     cursor.execute("SELECT * FROM Magazyn")
     data = cursor.fetchall()
 
-    # Poproś użytkownika o wybór nazwy pliku
     file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Pliki Excel", "*.xlsx")])
 
     if file_path:
-        # Tworzenie nowego arkusza kalkulacyjnego
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Dane z bazy"
 
-        # Nagłówki kolumn
         headers = ["ID", "Nazwa", "Ilość"]
         for col_num, header in enumerate(headers, 1):
             ws.cell(row=1, column=col_num, value=header)
 
-        # Wprowadzenie danych
         for row_num, row_data in enumerate(data, 2):
             for col_num, cell_value in enumerate(row_data, 1):
                 ws.cell(row=row_num, column=col_num, value=cell_value)
 
-        # Zapisanie arkusza kalkulacyjnego do pliku Excel
         wb.save(file_path)
 
-        # Zakończenie połączenia z bazą danych
         conn.close()
 
-        # Wyświetl komunikat o sukcesie
         messagebox.showinfo("Sukces", f"Plik Excel został wygenerowany pomyślnie.")
 
-
-# Sortowanie elementów w drzewie od stanu magazynowego
 
 def sort_treeview(tree, col, descending):
     data = [(int(tree.set(child, col)), child) for child in tree.get_children('')]
@@ -1014,13 +986,10 @@ def sort_treeview2(tree, col, descending):
 
 ###################################### Tworzenie zlecenia #####################################################
 
-# Zmienna globalna przechowująca numer bieżącego zlecenia
 current_order_number = 1
 
 added_products = set()
 
-
-# Dodawanie produktu do zlecenia
 
 def add_to_order():
     selected_items = tree.selection()
@@ -1031,9 +1000,10 @@ def add_to_order():
 
         available_quantity = int(item[2])
 
-        # Okno ThemedTk do wprowadzania ilości
-        quantity_window = ThemedTk(theme="arc")
+        quantity_window = Toplevel()
         quantity_window.title("Ilość")
+
+        quantity_window.grab_set()
 
         frame = ttk.Frame(quantity_window, padding=(30, 30, 30, 30))
         frame.grid(row=0, column=0, sticky="nsew")
@@ -1043,14 +1013,27 @@ def add_to_order():
         entry = ttk.Entry(frame, width=50, font=('Arial', 12), justify='left')
         entry.grid(row=0, column=1, padx=5, pady=(20, 5), ipady=10)
 
+        def check_order_exists(order_number):
+            conn = mysql.connector.connect(
+                host="db4free.net",
+                user="magazyn",
+                password="Inzynierka",
+                database="magazyn_pd"
+            )
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM Zlecenie WHERE Numer = %s", (order_number,))
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count > 0
+
         def confirm_quantity():
             nonlocal quantity_window
             quantity_str = entry.get()
             if quantity_str.isdigit():
                 quantity = int(quantity_str)
                 if 0 < quantity <= available_quantity:
-                    # Aktualizuj bazę danych - zmniejsz ilość produktu
-                    zmniejsz_ilosc_w_bazie2(product_id, quantity)
+
+                    reduce_quantity_in_datebase2(product_id, quantity)
                     populate_tree()
 
                     order_number = current_order_number
@@ -1060,7 +1043,7 @@ def add_to_order():
                     new_item = item[:2] + (quantity, order_number)
                     order_tree.insert('', 'end', values=new_item)
 
-                    quantity_window.destroy()  # Zamknij okno ThemedTk po potwierdzeniu ilości
+                    quantity_window.destroy()
                 else:
                     tk.messagebox.showerror("Błąd",
                                             f"Podana ilość jest nieprawidłowa lub przekracza dostępną ilość ({available_quantity}).")
@@ -1068,27 +1051,18 @@ def add_to_order():
         confirm_button = ttk.Button(frame, text="Potwierdź", command=confirm_quantity)
         confirm_button.grid(row=1, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
+        def on_close():
+            quantity_window.grab_release()
+            quantity_window.destroy()
+
+        quantity_window.protocol("WM_DELETE_WINDOW", on_close)
+
+        quantity_window.resizable(width=False, height=False)
+
         quantity_window.mainloop()
 
 
-# Sprawdzanie aktulanych numerów zleceń w bazie danych w celu wybrania wolnego numeru zamówienia
-def check_order_exists(order_number):
-    conn = mysql.connector.connect(
-        host="db4free.net",
-        user="magazyn",
-        password="Inzynierka",
-        database="magazyn_pd"
-    )
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM Zlecenie WHERE Numer = %s", (order_number,))
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count > 0
-
-
-# Zmniejszanie ilości produktów o liczbę dodanych produktów do zlecenia
-
-def zmniejsz_ilosc_w_bazie2(id, quantity):
+def reduce_quantity_in_datebase2(id, quantity):
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -1103,11 +1077,7 @@ def zmniejsz_ilosc_w_bazie2(id, quantity):
     conn.close()
 
 
-# Usuwanie produktów ze zlecenia
-
 removed_products = {}
-
-
 def remove_from_order():
     selected_items = order_tree.selection()
     for item_id in selected_items:
@@ -1115,21 +1085,16 @@ def remove_from_order():
         product_id = item[0]
         quantity = item[2]
 
-        # Dodaj informacje o usuniętym produkcie do słownika
         if product_id in removed_products:
             removed_products[product_id] += quantity
         else:
             removed_products[product_id] = quantity
 
-        # Usuń element z zamówienia
         order_tree.delete(item_id)
 
-    przywroc_do_bazy()
+    restore_to_datebase()
     populate_tree()
-
-
-# Przywracanie elementów do bazy danych po usunięciu ze zlecenia
-def przywroc_do_bazy():
+def restore_to_datebase():
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -1139,17 +1104,12 @@ def przywroc_do_bazy():
     cursor = conn.cursor()
 
     for product_id, quantity in removed_products.items():
-        # Wykonaj zapytanie SQL, które zwiększa ilość produktu w bazie danych
         cursor.execute("UPDATE Magazyn SET Ilosc = Ilosc + %s WHERE id=%s", (quantity, product_id))
 
     conn.commit()
     conn.close()
 
-    # Wyczyść słownik po przywróceniu do bazy danych
     removed_products.clear()
-
-
-# Zapisywanie zlecenia w bazie danych
 
 def save_to_database():
     conn = mysql.connector.connect(
@@ -1160,35 +1120,31 @@ def save_to_database():
     )
     cursor = conn.cursor()
 
-    current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Uzyskaj bieżącą datę i godzinę
+    current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Przykładowe założenie: logged_in_user zawiera aktualnie zalogowanego użytkownika
     user_name = user_id
 
     for item in order_tree.get_children():
         values = order_tree.item(item, 'values')
-        product_id, name, quantity, order_number = values  # Usunięto date_added z wartości
+        product_id, name, quantity, order_number = values
 
         cursor.execute(
             "INSERT INTO Zlecenie (ID, Nazwa, Ilosc, Numer, DataDodania, identyfikator) VALUES (%s, %s, %s, %s, %s, %s)",
             (product_id, name, quantity, order_number, current_datetime,
-             user_name))  # Dodaj imię użytkownika i bieżącą datę i godzinę
+             user_name))
 
     conn.commit()
     conn.close()
-    czyszczenie_okna()
+    clear_window()
 
 
-# Czyszczenie okna po wysłaniu zlecenia
-
-def czyszczenie_okna():
-    # Wyczyść okno zlecenia magazynowego
+def clear_window():
     for item in order_tree.get_children():
         order_tree.delete(item)
 
 
-def czyszczenie_okna_bez_wyslania():
-    # Przenieś usunięte przedmioty do słownika przed wyczyszczeniem okna
+def clear_window_without_send():
+
     for item_id in order_tree.get_children():
         item = order_tree.item(item_id, 'values')
         product_id = item[0]
@@ -1199,31 +1155,39 @@ def czyszczenie_okna_bez_wyslania():
         else:
             removed_products[product_id] = quantity
 
-    # Wyczyść okno zlecenia magazynowego
     for item in order_tree.get_children():
         order_tree.delete(item)
 
-    przywroc_do_bazy()
+    restore_to_datebase()
     populate_tree()
 
 
 ###################################### Potwierdzanie zlecenia #####################################################
 
 
-# Potwierdzanie wydania zlecenia przez magazyniera
-
 def remove_order_by_number():
-    root = ThemedTk(theme="arc")
+    root = Toplevel()
     root.title("Usuń zamówienie")
+
+    root.grab_set()
 
     frame = ttk.Frame(root, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
-    # Dodaj pole do wprowadzania liczby
     entry_label = ttk.Label(frame, text="Numer zamówienia:")
     entry_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
     entry = ttk.Entry(frame, width=50, font=('Arial', 12), justify='left')
     entry.grid(row=0, column=1, padx=5, pady=(20, 5), ipady=10)
+
+    root.resizable(width=False, height=False)
+
+    def on_close():
+        root.grab_release()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.resizable(width=False, height=False)
 
     def show_order_details(orders_data):
         details_text = ""
@@ -1234,7 +1198,7 @@ def remove_order_by_number():
                                         f"Czy na pewno chcesz przenieść te zamówienia do historii?\n\n{details_text}")
         return result
 
-    def Zakonczone():
+    def End():
         order_number = entry.get()
 
         if order_number.isdigit():
@@ -1248,17 +1212,14 @@ def remove_order_by_number():
             )
             cursor = conn.cursor()
 
-            # Pobierz dane wszystkich zamówień o danym numerze
             cursor.execute("SELECT * FROM Zlecenie WHERE Numer = %s", (order_number,))
             orders_data = cursor.fetchall()
 
-            # Pokaż okno potwierdzające raz dla wszystkich zamówień
             if show_order_details(orders_data):
                 for order_data in orders_data:
-                    # Zapytanie do przeniesienia do tabeli Historia
+
                     insert_query = "INSERT INTO Historia (ID, Nazwa, Ilosc, Numer, DataDodania, Status, DataZakonczenia, Zamawiajacy, Realizujacy) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
 
-                    # Uzyskaj aktualną datę
                     current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     history_data = (
@@ -1266,21 +1227,18 @@ def remove_order_by_number():
                         current_date, order_data[5], user_id)
                     cursor.execute(insert_query, history_data)
 
-                    # Usuń z bazy danych
                     cursor.execute("DELETE FROM Zlecenie WHERE Numer = %s AND ID = %s", (order_number, order_data[0]))
 
                 conn.commit()
 
-                # Usuń wszystkie elementy z drzewa
                 for item in order_tree.get_children():
                     order_tree.delete(item)
 
-                # Ponownie załaduj zamówienia z bazy danych
                 populate_order_tree()
 
             conn.close()
 
-    def Anulowane():
+    def Cancel():
         order_number = entry.get()
 
         if order_number.isdigit():
@@ -1294,59 +1252,52 @@ def remove_order_by_number():
             )
             cursor = conn.cursor()
 
-            # Pobierz dane wszystkich zamówień o danym numerze
             cursor.execute("SELECT * FROM Zlecenie WHERE Numer = %s", (order_number,))
             orders_data = cursor.fetchall()
 
-            # Pokaż okno potwierdzające raz dla wszystkich zamówień
             if show_order_details(orders_data):
                 for order_data in orders_data:
-                    # Zapytanie do przeniesienia do tabeli Historia
-                    insert_query = "INSERT INTO Historia (ID, Nazwa, Ilosc, Numer, DataDodania, Status, DataZakonczenia) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+                    insert_query = "INSERT INTO Historia (ID, Nazwa, Ilosc, Numer, DataDodania, Status, DataZakonczenia, Zamawiajacy, Realizujacy) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
 
-                    # Uzyskaj aktualną datę
                     current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     history_data = (
                         order_data[0], order_data[1], order_data[2], order_data[3], order_data[4], 'Anulowane',
-                        current_date)
+                        current_date, order_data[5], user_id)
                     cursor.execute(insert_query, history_data)
 
-                    # Usuń z bazy danych
                     cursor.execute("DELETE FROM Zlecenie WHERE Numer = %s AND ID = %s", (order_number, order_data[0]))
 
                 conn.commit()
 
-                # Usuń wszystkie elementy z drzewa
                 for item in order_tree.get_children():
                     order_tree.delete(item)
 
-                # Ponownie załaduj zamówienia z bazy danych
                 populate_order_tree()
 
             conn.close()
 
-    # Dodaj przycisk do uruchamiania funkcji usuwającej zamówienie
-    remove_order_button = ttk.Button(frame, text="Potwierdź zamówienie", command=Zakonczone)
+    remove_order_button = ttk.Button(frame, text="Potwierdź zamówienie", command=End)
     remove_order_button.grid(row=1, column=1, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
-    remove_order_button = ttk.Button(frame, text="Anuluj zamówienie", command=Anulowane)
+    remove_order_button = ttk.Button(frame, text="Anuluj zamówienie", command=Cancel)
     remove_order_button.grid(row=2, column=1, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
 
-# Historia zamówień
 
-def historia():
+def history():
     global history_tree
 
-    root = ThemedTk(theme="arc")
-    root.title("Historia Zleceń Magazynowych")
+    history_window = Toplevel()
+    history_window.title("Historia Zleceń Magazynowych")
 
-    frame = ttk.Frame(root, padding=(30, 30, 30, 30))
+    history_window.grab_set()
+
+    frame = ttk.Frame(history_window, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
     history_tree = ttk.Treeview(frame, columns=(
-    "ID", "Nazwa", "Ilosc", "Numer", "DataDodania", "Status", "DataZakonczenia", "Zamawiajacy", "Realizujacy"))
+        "ID", "Nazwa", "Ilosc", "Numer", "DataDodania", "Status", "DataZakonczenia", "Zamawiajacy", "Realizujacy"))
     history_tree["show"] = "headings"
     history_tree.heading("ID", text="ID", anchor='center')
     history_tree.heading("Nazwa", text="Nazwa", anchor='center')
@@ -1359,31 +1310,33 @@ def historia():
     history_tree.heading("Realizujacy", text="Realizujacy", anchor='center')
     history_tree.grid(row=1, column=0, columnspan=2, pady=(20, 15))
 
-    data_entry_button = ttk.Button(frame, text="Pokaż historię", command=populate_tree4)
-    data_entry_button.grid(row=8, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
+    populate_tree4()
 
-    # Uruchomienie głównej pętli
-    root.mainloop()
+    def on_close():
+        history_window.grab_release()
+        history_window.destroy()
+
+    history_window.protocol("WM_DELETE_WINDOW", on_close)
+
+    history_window.resizable(width=False, height=False)
+
+    history_window.mainloop()
 
 
 ###################################### Funkcje administratora #####################################################
 
-# Tworzenie szyfrowania hasła
-
-def utworz_skrot_hasla(haslo):
-    # Używamy funkcji sha256 z modułu hashlib do utworzenia skrótu hasła
+def hash_password(haslo):
     skrot = hashlib.sha256(haslo.encode()).hexdigest()
     return skrot
 
-
-# Tworzenie użytkownika
 def user_edit1(id):
-    def zapisz_edycje():
-        nowe_imie = imie_entry.get()
-        nowe_nazwisko = nazwisko_entry.get()
-        nowa_rola = rola_var.get()
-        nowy_email = email_entry.get()
-        nowy_identyfikator = identyfikator_entry.get()
+
+    def save_edit():
+        new_name = name_entry.get()
+        new_lastname = lastname_entry.get()
+        new_level = level_var.get()
+        new_email = email_entry.get()
+        new_id = id_entry.get()
 
         conn = mysql.connector.connect(
             host="db4free.net",
@@ -1394,31 +1347,29 @@ def user_edit1(id):
         cursor = conn.cursor()
 
         cursor.execute('SELECT imie, nazwisko, email FROM uzytkownicy WHERE id=%s', (id,))
-        stare = cursor.fetchone()
-        stare_imie = stare[0]
-        stare_nazwisko = stare[1]
-        stary_email = stare[2]
+        old=cursor.fetchone()
+        old_name=old[0]
+        old_lastname=old[1]
+        old_email=old[2]
 
-        # Sprawdź, czy imię lub nazwisko uległy zmianie
-        if nowe_imie != stare_imie or nowe_nazwisko != stare_nazwisko:
-            # Jeśli tak, zaktualizuj adres e-mail
-            stary_email = f"{nowe_imie.lower()}.{nowe_nazwisko.lower()}@email.com"
-            print(stary_email)
-        elif nowy_email != stary_email:
-            print(nowy_email)
-            # Jeśli imię i nazwisko się nie zmieniły, ale administrator chce zmienić ręcznie e-mail
-            stary_email = nowy_email
+        if new_name != old_name or new_lastname != old_lastname:
+            old_email = f"{new_name.lower()}.{new_lastname.lower()}@email.com"
+        elif new_email != old_email:
+            old_email = new_email
 
         cursor.execute('UPDATE uzytkownicy SET imie=%s, nazwisko=%s, rola=%s, email=%s, identyfikator=%s WHERE id=%s',
-                       (nowe_imie, nowe_nazwisko, nowa_rola, stary_email, nowy_identyfikator, id))
+                       (new_name, new_lastname, new_level, old_email,new_id, id))
 
         conn.commit()
 
         populate_tree3()
 
         messagebox.showinfo("Sukces", "Edycja użytkownika zakończona pomyślnie.")
-    root = ThemedTk(theme="arc")
+
+    root = Toplevel()
     root.title("Edycja użytkownika")
+
+    root.grab_set()
 
     conn = mysql.connector.connect(
         host="db4free.net",
@@ -1428,141 +1379,145 @@ def user_edit1(id):
     )
     cursor = conn.cursor()
     cursor.execute('SELECT imie, nazwisko, rola, email, identyfikator FROM uzytkownicy WHERE id=%s', (id,))
-    dane_uzytkownika = cursor.fetchone()
+    date_user = cursor.fetchone()
     conn.close()
 
     frame = ttk.Frame(root, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
-    imie_label = ttk.Label(frame, text="Imię:")
-    imie_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
-    imie_entry = ttk.Entry(frame)
-    imie_entry.grid(row=0, column=1, pady=(20, 5), ipady=10)
-    imie_entry.insert(0, dane_uzytkownika[0])  # Ustawienie domyślnej wartości
+    name_label = ttk.Label(frame, text="Imię:")
+    name_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
+    name_entry = ttk.Entry(frame)
+    name_entry.grid(row=0, column=1, pady=(20, 5), ipady=10)
+    name_entry.insert(0, date_user[0])
 
-    nazwisko_label = ttk.Label(frame, text="Nazwisko:")
-    nazwisko_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
-    nazwisko_entry = ttk.Entry(frame)
-    nazwisko_entry.grid(row=1, column=1, pady=(5, 10), ipady=10)
-    nazwisko_entry.insert(0, dane_uzytkownika[1])  # Ustawienie domyślnej wartości
+    lastname_label = ttk.Label(frame, text="Nazwisko:")
+    lastname_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
+    lastname_entry = ttk.Entry(frame)
+    lastname_entry.grid(row=1, column=1, pady=(5, 10), ipady=10)
+    lastname_entry.insert(0, date_user[1])
 
-    rola_label = ttk.Label(frame, text="Rola:")
-    rola_label.grid(row=2, column=0, sticky="w", pady=(5, 10))
-    role = ["admin", "pracownik", "magazyn"]
-    rola_var = ttk.Combobox(frame, values=role)
-    rola_var.grid(row=2, column=1, pady=(5, 10), ipady=10)
-    rola_var.set(dane_uzytkownika[2])  # Ustawienie domyślnej wartości
+    level_label = ttk.Label(frame, text="Rola:")
+    level_label.grid(row=2, column=0, sticky="w", pady=(5, 10))
+    level = ["admin", "pracownik", "magazyn"]
+    level_var = ttk.Combobox(frame, values=level)
+    level_var.grid(row=2, column=1, pady=(5, 10), ipady=10)
+    level_var.set(date_user[2])
 
     email_label = ttk.Label(frame, text="Email:")
     email_label.grid(row=3, column=0, sticky="w", pady=(5, 10))
     email_entry = ttk.Entry(frame)
     email_entry.grid(row=3, column=1, pady=(5, 10), ipady=10)
-    email_entry.insert(0, dane_uzytkownika[3])  # Ustawienie domyślnej wartości
+    email_entry.insert(0, date_user[3])
 
-    identyfikator_label = ttk.Label(frame, text="Identfikator:")
-    identyfikator_label.grid(row=4, column=0, sticky="w", pady=(5, 10))
-    identyfikator_entry = ttk.Entry(frame)
-    identyfikator_entry.grid(row=4, column=1, pady=(5, 10), ipady=10)
-    identyfikator_entry.insert(0, dane_uzytkownika[4])  # Ustawienie domyślnej wartości
+    id_label = ttk.Label(frame, text="Identfikator:")
+    id_label.grid(row=4, column=0, sticky="w", pady=(5, 10))
+    id_entry = ttk.Entry(frame)
+    id_entry.grid(row=4, column=1, pady=(5, 10), ipady=10)
+    id_entry.insert(0, date_user[4])
 
-    zapisz_button = ttk.Button(frame, text="Zapisz edycję", command=zapisz_edycje)
-    zapisz_button.grid(row=5, column=0, columnspan=2, pady=(10, 20))
+    save_button = ttk.Button(frame, text="Zapisz edycję", command=save_edit)
+    save_button.grid(row=5, column=0, columnspan=2, pady=(10, 20))
+
+    def on_close():
+        root.grab_release()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.resizable(width=False, height=False)
 
     root.mainloop()
 
-def edytuj():
-    # Pobierz zaznaczony element z widoku drzewa
-    zaznaczone_elementy = users_tree.selection()
-    if len(zaznaczone_elementy) == 0:
-        # Jeśli nic nie jest zaznaczone, nie otwieraj okna
+def edit():
+    select_items = users_tree.selection()
+    if len(select_items) == 0:
         return
 
-    root = ThemedTk(theme="arc")
+    root = Toplevel()
     root.title("Formularz edycji")
 
-    # Pobierz identyfikator zaznaczonego elementu
-    zaznaczony_element = zaznaczone_elementy[0]
+    root.grab_set()
 
-    # Pobierz dane zaznaczonego elementu
-    dane_zaznaczonego_elementu = users_tree.item(zaznaczony_element, 'values')
+    select_item = select_items[0]
 
-    # Pobierz identyfikator zaznaczonego elementu (na przykład w pierwszej kolumnie)
-    id_elementu = dane_zaznaczonego_elementu[0]
-    # Dodaj ramkę dla estetyki
+    date_select_item = users_tree.item(select_item, 'values')
+
+    id_item = date_select_item[0]
+
     frame = ttk.Frame(root, padding=30)
     frame.grid(row=0, column=0, sticky="nsew")
 
-    create_button = ttk.Button(frame, text="Edytuj użytkownika", command=lambda: user_edit1(id_elementu))
+    create_button = ttk.Button(frame, text="Edytuj użytkownika", command=lambda: user_edit1(id_item))
     create_button.grid(row=1, column=0, pady=(0, 10), sticky="ew")
 
     create_button = ttk.Button(frame, text="Usuń użytkownika",
-                               command=lambda: usun_zaznaczony_element2(id_elementu, zaznaczony_element))
+                               command=lambda: remove_select_item2(id_item, select_item))
     create_button.grid(row=1, column=1, pady=(0, 10), sticky="ew")
 
-    create_button = ttk.Button(frame, text="Resetuj hasło użytkownika", command=lambda: reset_password(id_elementu))
+    create_button = ttk.Button(frame, text="Resetuj hasło użytkownika", command=lambda: reset_password(id_item))
     create_button.grid(row=1, column=3, pady=(0, 10), sticky="ew")
+
+    def on_close():
+        root.grab_release()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    root.resizable(width=False, height=False)
 
     root.mainloop()
 
+def create():
 
+    login_window = Toplevel()
+    login_window.title("Formularz logowania")
 
-def utworz():
-    root = ThemedTk(theme="arc")
-    root.title("Formularz logowania")
+    login_window.grab_set()
 
-    # Dodaj ramkę dla estetyki
-    frame = ttk.Frame(root, padding=(30, 30, 30, 30))
+    frame = ttk.Frame(login_window, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
-    # Etykieta i pole tekstowe dla imienia
-    imie_label = ttk.Label(frame, text="Imię:")
-    imie_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
-    imie_entry = ttk.Entry(frame)
-    imie_entry.grid(row=0, column=1, pady=(20, 5), ipady=10)
+    name_label = ttk.Label(frame, text="Imię:")
+    name_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
+    name_entry = ttk.Entry(frame)
+    name_entry.grid(row=0, column=1, pady=(20, 5), ipady=10)
 
-    # Etykieta i pole tekstowe dla nazwiska
-    nazwisko_label = ttk.Label(frame, text="Nazwisko:")
-    nazwisko_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
-    nazwisko_entry = ttk.Entry(frame)
-    nazwisko_entry.grid(row=1, column=1, pady=(5, 10), ipady=10)
+    lastname_label = ttk.Label(frame, text="Nazwisko:")
+    lastname_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
+    lastname_entry = ttk.Entry(frame)
+    lastname_entry.grid(row=1, column=1, pady=(5, 10), ipady=10)
 
-    haslo_label = ttk.Label(frame, text="Hasło:")
-    haslo_label.grid(row=2, column=0, sticky="w", pady=(5, 10))
-    haslo_entry = ttk.Entry(frame, show="*")
-    haslo_entry.grid(row=2, column=1, pady=(5, 10), ipady=10)
+    password_label = ttk.Label(frame, text="Hasło:")
+    password_label.grid(row=2, column=0, sticky="w", pady=(5, 10))
+    password_entry = ttk.Entry(frame, show="*")
+    password_entry.grid(row=2, column=1, pady=(5, 10), ipady=10)
 
-    # Etykieta i rozwijalne menu dla nowej roli użytkownika
-    nowa_rola_label = ttk.Label(frame, text="Rola:")
-    nowa_rola_label.grid(row=3, column=0, sticky="w", pady=(5, 10))
+    level_rola_label = ttk.Label(frame, text="Rola:")
+    level_rola_label.grid(row=3, column=0, sticky="w", pady=(5, 10))
 
-    role = ["admin", "pracownik", "magazyn"]
-    nowa_rola_var = tk.StringVar()
-    nowa_rola_var.set(role[0])
-    rola_menu = ttk.Combobox(frame, values=role, state="readonly")
-    rola_menu.grid(row=3, column=1, pady=(5, 10), ipady=10)
+    level = ["admin", "pracownik", "magazyn"]
+    level_rola_var = tk.StringVar()
+    level_rola_var.set(level[0])
+    level_menu = ttk.Combobox(frame, values=level, state="readonly")
+    level_menu.grid(row=3, column=1, pady=(5, 10), ipady=10)
 
-    # Etykieta do wyświetlania komunikatów o błędach
-    wynik_label = ttk.Label(frame, text="")
-    wynik_label.grid(row=6, column=0, columnspan=2, pady=(15, 20))
+    result_label = ttk.Label(frame, text="")
+    result_label.grid(row=6, column=0, columnspan=2, pady=(15, 20))
 
-    # Funkcja do tworzenia użytkownika
-    def utworz_uzytkownika():
-        imie = imie_entry.get()
-        nazwisko = nazwisko_entry.get()
-        haslo = haslo_entry.get()
-        nowa_rola = rola_menu.get()  # Pobierz wartość bezpośrednio z rozwijalnego menu
+    def create_user():
+        name = name_entry.get()
+        lastname = lastname_entry.get()
+        password = password_entry.get()
+        new_level = level_menu.get()
 
-        if not nowa_rola:
-            wynik_label.config(text="Wybierz rolę użytkownika.")
+        if not new_level:
+            result_label.config(text="Wybierz rolę użytkownika.")
             return
 
+        new_email = f"{name.lower()}.{lastname.lower()}@email.com"
+        id = f"{new_level[0].upper()}_{name[0].upper()}{lastname[0].upper()}"
 
-        # Automatyczne generowanie emaila na podstawie imienia i nazwiska
-        nowy_email = f"{imie.lower()}.{nazwisko.lower()}@email.com"
-
-        # Tworzenie Indentyfikatora
-        identyfikator = f"{nowa_rola[0].upper()}_{imie[0].upper()}{nazwisko[0].upper()}"
-        print(identyfikator)
         conn = mysql.connector.connect(
             host="db4free.net",
             user="magazyn",
@@ -1570,46 +1525,41 @@ def utworz():
             database="magazyn_pd"
         )
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM uzytkownicy WHERE email=%s', (nowy_email,))
-        istniejacy_uzytkownik = cursor.fetchone()
+        cursor.execute('SELECT * FROM uzytkownicy WHERE email=%s', (new_email,))
+        exists_user = cursor.fetchone()
 
-        if istniejacy_uzytkownik:
-            wynik_label.config(text="Użytkownik o podanym adresie email już istnieje.")
+        if exists_user:
+            result_label.config(text="Użytkownik o podanym adresie email już istnieje.")
         else:
             cursor.execute(
                 'INSERT INTO uzytkownicy (email, haslo, imie, nazwisko, rola, identyfikator) VALUES (%s, %s, %s, %s, %s, %s)',
-                (nowy_email, utworz_skrot_hasla(haslo), imie, nazwisko, nowa_rola, identyfikator))
+                (new_email, hash_password(password), name, lastname, new_level, id))
             conn.commit()
             conn.close()
             populate_tree3()
 
-            wynik_label.config(text="Nowy użytkownik został utworzony.")
+            result_label.config(text="Nowy użytkownik został utworzony.")
 
-            imie_entry.delete(0, tk.END)
-            nazwisko_entry.delete(0, tk.END)
+            name_entry.delete(0, tk.END)
+            lastname_entry.delete(0, tk.END)
 
-    # Przycisk do tworzenia użytkownika
-    create_user_button = ttk.Button(frame, text="Utwórz użytkownika", command=utworz_uzytkownika, width=20)
+    create_user_button = ttk.Button(frame, text="Utwórz użytkownika", command=create_user, width=20)
     create_user_button.grid(row=5, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
-    # Uruchomienie głównej pętli
-    root.mainloop()
+    login_window.resizable(width=False, height=False)
+
+    login_window.mainloop()
 
 
-# Usuwanie użytkownika przez administratora
+def remove_select_item2(id_item, select_item):
 
-def usun_zaznaczony_element2(id_elementu, zaznaczony_element):
-    # Wyświetl pytanie o potwierdzenie przed usunięciem
-    potwierdzenie = messagebox.askyesno("Potwierdzenie", "Czy na pewno chcesz usunąć ten element?")
-    if potwierdzenie:
-        # Usuń zaznaczony element z bazy danych
-        usun_rekord2(id_elementu)
+    confirm = messagebox.askyesno("Potwierdzenie", "Czy na pewno chcesz usunąć ten element?")
+    if confirm:
+        remove_record2(id_item)
 
-        # Usuń zaznaczony element z widoku drzewa
-        users_tree.delete(zaznaczony_element)
+        users_tree.delete(select_item)
 
-
-def usun_rekord2(id):
+def remove_record2(id):
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -1618,7 +1568,6 @@ def usun_rekord2(id):
     )
     cursor = conn.cursor()
 
-    # Wykonaj zapytanie SQL, aby usunąć rekord o określonym identyfikatorze
     cursor.execute("DELETE FROM uzytkownicy WHERE id=%s", (id,))
 
     conn.commit()
@@ -1627,15 +1576,15 @@ def usun_rekord2(id):
 
 def on_close(root):
     root.destroy()
-    wyswietl_ekran_logowania()
+    show_login_screen()
 
 
 def reset_password(id):
-    def sprawdz_haslo2():
-        nowe_haslo_1 = nowe_haslo_entry_1.get()
-        nowe_haslo_2 = nowe_haslo_entry_2.get()
+    def check_password2():
+        new_password_1 = new_password_entry_1.get()
+        new_password_2 = new_password_entry_2.get()
 
-        if nowe_haslo_1 != nowe_haslo_2:
+        if new_password_1 != new_password_2:
             messagebox.showerror("Błąd", "Podane hasła nie są identyczne.")
             return
 
@@ -1647,38 +1596,47 @@ def reset_password(id):
         )
         cursor = conn.cursor()
 
-        # Aktualizacja hasła w bazie danych
-        cursor.execute('UPDATE uzytkownicy SET haslo=%s WHERE id=%s', (utworz_skrot_hasla(nowe_haslo_1), id))
+        cursor.execute('UPDATE uzytkownicy SET haslo=%s WHERE id=%s', (hash_password(new_password_1), id))
         conn.commit()
 
         messagebox.showinfo("Sukces", "Hasło zostało pomyślnie zmienione.")
 
-    root = ThemedTk(theme="arc")
-    root.title("Formularz resetowania hasła")
+    password_reset_window = Toplevel()
+    password_reset_window.title("Formularz resetowania hasła")
 
-    frame = ttk.Frame(root, padding=(30, 30, 30, 30))
+    password_reset_window.grab_set()
+
+    frame = ttk.Frame(password_reset_window, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
-    nowe_haslo_label_1 = ttk.Label(frame, text="Nowe hasło:")
-    nowe_haslo_label_1.grid(row=0, column=0, sticky="w", pady=(20, 5))
-    nowe_haslo_entry_1 = ttk.Entry(frame, show="*")
-    nowe_haslo_entry_1.grid(row=0, column=1, pady=(20, 5), ipady=10)
+    new_password_label_1 = ttk.Label(frame, text="Nowe hasło:")
+    new_password_label_1.grid(row=0, column=0, sticky="w", pady=(20, 5))
+    new_password_entry_1 = ttk.Entry(frame, show="*")
+    new_password_entry_1.grid(row=0, column=1, pady=(20, 5), ipady=10)
 
-    nowe_haslo_label_2 = ttk.Label(frame, text="Potwierdź nowe hasło:")
-    nowe_haslo_label_2.grid(row=1, column=0, sticky="w", pady=(5, 10))
-    nowe_haslo_entry_2 = ttk.Entry(frame, show="*")
-    nowe_haslo_entry_2.grid(row=1, column=1, pady=(5, 10), ipady=10)
+    new_password_label_2 = ttk.Label(frame, text="Potwierdź nowe hasło:")
+    new_password_label_2.grid(row=1, column=0, sticky="w", pady=(5, 10))
+    new_password_entry_2 = ttk.Entry(frame, show="*")
+    new_password_entry_2.grid(row=1, column=1, pady=(5, 10), ipady=10)
 
-    zmien_haslo_button = ttk.Button(frame, text="Zmień hasło", command=sprawdz_haslo2)
-    zmien_haslo_button.grid(row=2, column=0, columnspan=2, pady=(10, 20))
+    change_password_button = ttk.Button(frame, text="Zmień hasło", command=check_password2)
+    change_password_button.grid(row=2, column=0, columnspan=2, pady=(10, 20))
 
+    def on_close():
+        password_reset_window.grab_release()
+        password_reset_window.destroy()
 
-def zmien_haslo():
-    print(user_id)
+    password_reset_window.protocol("WM_DELETE_WINDOW", on_close)
 
-    def sprawdz_haslo():
-        stare_haslo = stare_haslo_entry.get()
-        nowe_haslo = nowe_haslo_entry.get()
+    password_reset_window.resizable(width=False, height=False)
+
+    password_reset_window.mainloop()
+
+def change_password():
+
+    def check_password():
+        old_password = old_password_entry.get()
+        new_password = new_password_entry.get()
 
         conn = mysql.connector.connect(
             host="db4free.net",
@@ -1687,20 +1645,16 @@ def zmien_haslo():
             database="magazyn_pd"
         )
         cursor = conn.cursor()
-        print(user_id)
         cursor.execute('SELECT haslo FROM uzytkownicy WHERE identyfikator=%s', (user_id,))
         result = cursor.fetchone()
-        print(result)
 
         if result:
-            print(result[0])
-            haslo_w_bazie = result[0]
-            haslo_skrot = utworz_skrot_hasla(stare_haslo)
+            password_in_datebase = result[0]
+            hash = hash_password(old_password)
 
-            if haslo_w_bazie == haslo_skrot:
-                # Aktualizacja hasła
+            if password_in_datebase == hash:
                 cursor.execute('UPDATE uzytkownicy SET haslo=%s WHERE identyfikator=%s',
-                               (utworz_skrot_hasla(nowe_haslo), user_id))
+                               (hash_password(new_password), user_id))
                 conn.commit()
                 messagebox.showinfo("Sukces", "Hasło zostało pomyślnie zmienione.")
             else:
@@ -1708,29 +1662,35 @@ def zmien_haslo():
         else:
             messagebox.showerror("Błąd", "Wystąpił błąd podczas pobierania hasła z bazy danych.")
 
-    root = ThemedTk(theme="arc")
-    root.title("Formularz zmiany hasła")
+    password_change_window = Toplevel()
+    password_change_window.title("Formularz zmiany hasła")
 
-    frame = ttk.Frame(root, padding=(30, 30, 30, 30))
+    password_change_window.grab_set()
+
+    frame = ttk.Frame(password_change_window, padding=(30, 30, 30, 30))
     frame.grid(row=0, column=0, sticky="nsew")
 
-    stare_haslo_label = ttk.Label(frame, text="Stare hasło:")
-    stare_haslo_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
-    stare_haslo_entry = ttk.Entry(frame, show="*")
-    stare_haslo_entry.grid(row=0, column=1, pady=(20, 5), ipady=10)
+    old_password_label = ttk.Label(frame, text="Stare hasło:")
+    old_password_label.grid(row=0, column=0, sticky="w", pady=(20, 5))
+    old_password_entry = ttk.Entry(frame, show="*")
+    old_password_entry.grid(row=0, column=1, pady=(20, 5), ipady=10)
 
-    nowe_haslo_label = ttk.Label(frame, text="Nowe hasło:")
-    nowe_haslo_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
-    nowe_haslo_entry = ttk.Entry(frame, show="*")
-    nowe_haslo_entry.grid(row=1, column=1, pady=(5, 10), ipady=10)
+    new_password_label = ttk.Label(frame, text="Nowe hasło:")
+    new_password_label.grid(row=1, column=0, sticky="w", pady=(5, 10))
+    new_password_entry = ttk.Entry(frame, show="*")
+    new_password_entry.grid(row=1, column=1, pady=(5, 10), ipady=10)
 
-    zmien_haslo_button = ttk.Button(frame, text="Zmień hasło", command=sprawdz_haslo)
-    zmien_haslo_button.grid(row=2, column=0, columnspan=2, pady=(10, 20))
+    change_password_button = ttk.Button(frame, text="Zmień hasło", command=check_password)
+    change_password_button.grid(row=2, column=0, columnspan=2, pady=(10, 20))
 
+    def on_close():
+        password_change_window.grab_release()
+        password_change_window.destroy()
 
-wyswietl_ekran_logowania()
+    password_change_window.protocol("WM_DELETE_WINDOW", on_close)
 
-#
-# def zamknij_wszystkie_okna():
-#     for window in ThemedTk.themed_tk_instances():
-#         window.destroy()
+    password_change_window.resizable(width=False, height=False)
+
+    password_change_window.mainloop()
+
+show_login_screen()
