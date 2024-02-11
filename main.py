@@ -490,7 +490,6 @@ def populate_tree5():
 
 
 def remove_select_item():
-
     select_item = tree.selection()
     if len(select_item) == 0:
         return
@@ -503,10 +502,30 @@ def remove_select_item():
 
     confirm = messagebox.askyesno("Potwierdzenie", "Czy na pewno chcesz usunąć ten element?")
     if confirm:
-        remove(id_elementu)
+        if not is_product_used(id_elementu):
+            remove(id_elementu)
+            tree.delete(select_itemm)
+        else:
+            messagebox.showwarning("Ostrzeżenie", "Nie można usunąć produktu, ponieważ jest używany w tabeli Historia lub Zlecenia")
 
-        tree.delete(select_itemm)
+def is_product_used(product_id):
+    conn = mysql.connector.connect(
+        host="db4free.net",
+        user="magazyn",
+        password="Inzynierka",
+        database="magazyn_pd"
+    )
+    cursor = conn.cursor()
 
+    cursor.execute("SELECT * FROM Zlecenie WHERE ID = %s", (product_id,))
+    result_zlecenia = cursor.fetchone()
+
+    cursor.execute("SELECT * FROM Historia WHERE ID = %s", (product_id,))
+    result_historia = cursor.fetchone()
+
+    conn.close()
+
+    return result_historia or result_zlecenia
 
 def remove(id):
     conn = mysql.connector.connect(
@@ -521,7 +540,6 @@ def remove(id):
 
     conn.commit()
     conn.close()
-
 
 
 def search():
@@ -579,7 +597,7 @@ def search():
 
 def add_to_datebase():
     root = Toplevel()
-    root.title("Dodawanie danych do bazy")
+    root.title("Dodawanie produktu do magazynu")
 
     root.grab_set()
 
@@ -670,7 +688,7 @@ def add_to_datebase():
         conn.close()
         populate_tree()
 
-    button = ttk.Button(frame, text="Dodaj do bazy", command=check_and_add)
+    button = ttk.Button(frame, text="Dodaj do magazynu", command=check_and_add)
     button.grid(row=3, column=0, columnspan=2, pady=(20, 15), ipadx=20, ipady=10)
 
 
@@ -767,7 +785,7 @@ def admission():
                 receipt_tree.delete(item)
 
     root = Toplevel()
-    root.title("Dodawanie danych do bazy")
+    root.title("Przyjęcie produktów")
 
     root.grab_set()
 
@@ -1013,7 +1031,7 @@ def add_to_order():
         entry = ttk.Entry(frame, width=50, font=('Arial', 12), justify='left')
         entry.grid(row=0, column=1, padx=5, pady=(20, 5), ipady=10)
 
-        def check_order_exists(order_number):
+        def get_last_order_number():
             conn = mysql.connector.connect(
                 host="db4free.net",
                 user="magazyn",
@@ -1021,10 +1039,23 @@ def add_to_order():
                 database="magazyn_pd"
             )
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM Zlecenie WHERE Numer = %s", (order_number,))
-            count = cursor.fetchone()[0]
+            cursor.execute("SELECT MAX(Numer) FROM Zlecenie")
+            last_order_number = cursor.fetchone()[0]
             conn.close()
-            return count > 0
+            return last_order_number if last_order_number is not None else 0
+
+        def get_max_order_number_from_history():
+            conn = mysql.connector.connect(
+                host="db4free.net",
+                user="magazyn",
+                password="Inzynierka",
+                database="magazyn_pd"
+            )
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(Numer) FROM Historia")
+            max_order_number_from_history = cursor.fetchone()[0]
+            conn.close()
+            return max_order_number_from_history if max_order_number_from_history is not None else 0
 
         def confirm_quantity():
             nonlocal quantity_window
@@ -1033,14 +1064,15 @@ def add_to_order():
                 quantity = int(quantity_str)
                 if 0 < quantity <= available_quantity:
 
-                    reduce_quantity_in_datebase2(product_id, quantity)
+                    reduce_quantity_in_database2(product_id, quantity)
                     populate_tree()
 
-                    order_number = current_order_number
-                    while check_order_exists(order_number):
-                        order_number += 1
+                    last_order_number = get_last_order_number()
+                    max_order_number_from_history = get_max_order_number_from_history()
 
-                    new_item = item[:2] + (quantity, order_number)
+                    new_order_number = max(last_order_number, max_order_number_from_history) + 1
+
+                    new_item = item[:2] + (quantity, new_order_number)
                     order_tree.insert('', 'end', values=new_item)
 
                     quantity_window.destroy()
@@ -1062,7 +1094,7 @@ def add_to_order():
         quantity_window.mainloop()
 
 
-def reduce_quantity_in_datebase2(id, quantity):
+def reduce_quantity_in_database2(id, quantity):
     conn = mysql.connector.connect(
         host="db4free.net",
         user="magazyn",
@@ -1076,8 +1108,8 @@ def reduce_quantity_in_datebase2(id, quantity):
     conn.commit()
     conn.close()
 
-
 removed_products = {}
+
 def remove_from_order():
     selected_items = order_tree.selection()
     for item_id in selected_items:
@@ -1167,7 +1199,7 @@ def clear_window_without_send():
 
 def remove_order_by_number():
     root = Toplevel()
-    root.title("Usuń zamówienie")
+    root.title("Zakończenie zamówienia")
 
     root.grab_set()
 
